@@ -10,8 +10,135 @@ const progressBar = document.getElementById("progressBar");
 // The get favourites button element.
 const getFavouritesBtn = document.getElementById("getFavouritesBtn");
 
+
 // Step 0: Store your API key here for reference and easy access.
-const API_KEY = "";
+const API_KEY = "?api_key=";
+
+
+
+// Using Fetch
+
+import * as Carousel from "./Carousel.js";
+
+const breedSelect = document.getElementById("breedSelect");
+const infoDump = document.getElementById("infoDump");
+const progressBar = document.getElementById("progressBar");
+const API_KEY = "api_key=";
+const API_URL = "https://api.thecatapi.com/v1";
+
+async function initialLoad() {
+  try {
+    const response = await fetch(`${API_URL}/breeds?api_key=${API_KEY}`);
+    const breeds = await response.json();
+
+    breedSelect.innerHTML = "";
+    breeds.forEach((breed) => {
+      const option = document.createElement("option");
+      option.value = breed.id;
+      option.textContent = breed.name;
+      breedSelect.appendChild(option);
+    });
+
+    handleBreedSelection();
+  } catch (error) {
+    console.error("Error fetching breed list:", error);
+  }
+}
+
+// Using Axios 
+
+import * as Carousel from "./Carousel.js";
+import axios from "axios";
+
+const breedSelect = document.getElementById("breedSelect");
+const infoDump = document.getElementById("infoDump");
+const progressBar = document.getElementById("progressBar");
+const API_KEY = "?api_key=";
+
+axios.defaults.baseURL = "https://api.thecatapi.com/v1";
+axios.defaults.headers.common["?api_key="] = API_KEY;
+
+
+axios.interceptors.request.use((config) => {
+  console.log("Request started:", config.url);
+  document.body.style.cursor = "progress";
+  progressBar.style.width = "0%";
+  return config;
+});
+
+axios.interceptors.response.use((response) => {
+  console.log("Response received:", response.config.url);
+  document.body.style.cursor = "default";
+  progressBar.style.width = "100%";
+  setTimeout(() => (progressBar.style.width = "0%"), 500);
+  return response;
+});
+
+
+function updateProgress(event) {
+  if (event.lengthComputable) {
+    const percent = Math.round((event.loaded / event.total) * 100);
+    progressBar.style.width = `${percent}%`;
+  }
+}
+
+
+async function initialLoad() {
+  try {
+    const { data: breeds } = await axios.get("/breeds");
+    
+    breedSelect.innerHTML = "";
+    breeds.forEach((breed) => {
+      const option = document.createElement("option");
+      option.value = breed.id;
+      option.textContent = breed.name;
+      breedSelect.appendChild(option);
+    });
+
+    handleBreedSelection();
+  } catch (error) {
+    console.error("Error fetching breed list:", error);
+  }
+}
+
+
+async function handleBreedSelection() {
+  const selectedBreed = breedSelect.value;
+  if (!selectedBreed) return;
+
+  try {
+    const { data: images } = await axios.get(`/images/search`, {
+      params: { breed_ids: selectedBreed, limit: 5 },
+      onDownloadProgress: updateProgress,
+    });
+
+    Carousel.clear();
+    infoDump.innerHTML = "";
+
+    images.forEach((image) => {
+      const carouselItem = Carousel.createCarouselItem(image.url, image.breeds[0]?.name, image.id);
+      Carousel.appendCarousel(carouselItem);
+    });
+
+    const breedInfo = images[0]?.breeds[0];
+    if (breedInfo) {
+      infoDump.innerHTML = `
+        <h2>${breedInfo.name}</h2>
+        <p>${breedInfo.description}</p>
+        <p><strong>Origin:</strong> ${breedInfo.origin}</p>
+        <p><strong>Temperament:</strong> ${breedInfo.temperament}</p>
+      `;
+    }
+
+    Carousel.start();
+  } catch (error) {
+    console.error("Error fetching breed images:", error);
+  }
+}
+
+breedSelect.addEventListener("change", handleBreedSelection);
+document.addEventListener("DOMContentLoaded", initialLoad);
+
 
 /**
  * 1. Create an async function "initialLoad" that does the following:
